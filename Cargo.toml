@@ -2,7 +2,6 @@
 name = "btc-psql-insertions"
 version = "0.1.0"
 authors = ["Ray Diaz <rdiaz@tendrilinc.com>"]
-edition = "2018"
 
 [dependencies]
 postgres = "0.15"
