@@ -79,7 +79,7 @@ main!(|args: Cli| {
 
 #[test]
 fn insert_trades_int_test() {
-    let conn = Connection::connect(format!("postgres://{}@{}:{}", "postgres", "localhost", "5432"), TlsMode::None).unwrap();
+    let conn = Connection::connect(format!("postgres://{}@{}:{}", "postgres", "localhost", "5433"), TlsMode::None).unwrap();
     let contents = read_string_from_gzip_file("./src/resources/test.csv.gz".to_string()).unwrap();
     assert_eq!(contents.len(), 430);
 

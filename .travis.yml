@@ -4,9 +4,9 @@ services:
   - docker
 
 before_install:
-  - docker create -p 5432:5432 --name a_btc_db postgres:9.5-alpine
+  - docker create -p 5433:5432 --name a_btc_db postgres:9.5-alpine
   - docker start a_btc_db
-  - psql -h localhost -p 5432 postgres -U postgres -f src/resources/trades.sql
+  - psql -h localhost -p 5433 postgres -U postgres -f src/resources/trades.sql
  
 script:
   - cargo build --verbose --all
