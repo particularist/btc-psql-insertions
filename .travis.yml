@@ -1,6 +1,6 @@
 language: rust
 
-services: 
+services:
   - docker
 
 before_install:
@@ -8,7 +8,7 @@ before_install:
   - docker start a_btc_db
   - sleep 10
   - psql -h localhost -p 5433 postgres -U postgres -f src/resources/trades.sql
- 
+
 script:
   - cargo build --verbose --all
   - cargo test --verbose --all
