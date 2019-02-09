@@ -21,10 +21,10 @@ use quicli::prelude::*;
 struct Cli {
     #[structopt(long = "filename", short="f", default_value = "./src/resources/test.csv.gz")]
     filename: String,
-    dbHostname: String,
-    dbPort: i32,
-    dbUser: String,
-    dbName: String
+    db_hostname: String,
+    db_port: i32,
+    db_user: String,
+    db_name: String
 }
 
 #[derive(Debug,Deserialize)]
@@ -75,7 +75,7 @@ fn extract_exchange_and_currency(filename: &str) -> (String, String) {
 }
 
 main!(|args: Cli| {
-    let conn = Connection::connect(format!("postgres://{}@{}:{}", args.dbUser, args.dbHostname, args.dbPort), TlsMode::None).unwrap();
+    let conn = Connection::connect(format!("postgres://{}@{}:{}", args.db_user, args.db_hostname, args.db_port), TlsMode::None).unwrap();
     let the_file = args.filename.to_owned();
     let contents = read_string_from_gzip_file(&the_file).unwrap();
     let exchange_currency_tuple = extract_exchange_and_currency(&the_file);
