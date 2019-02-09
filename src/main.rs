@@ -19,18 +19,17 @@ use quicli::prelude::*;
 
 #[derive(Debug, StructOpt)]
 struct Cli {
-
     #[structopt(long = "filename", short="f", default_value = "./src/resources/test.csv.gz")]
     filename: String,
     dbHostname: String,
-    dbPort: i32, 
+    dbPort: i32,
     dbUser: String,
     dbName: String
 }
 
 #[derive(Debug,Deserialize)]
 struct Trade {
-    time: i64, 
+    time: i64,
     price: f32,
     amount: f32
 }
@@ -46,14 +45,13 @@ fn deserialize_trades_from_file_contents(contents: String) -> Result<Vec<Trade>>
     let mut rdr = csv::Reader::from_reader(prepended_contents.as_bytes());
     for result in rdr.deserialize() {
         let trade: Trade = result?;
-        println!("{:?}", trade);
         vec.push(trade);
     }
 
     Ok(vec)
 }
 
-fn read_string_from_gzip_file(filename: String) -> Result<String> {
+fn read_string_from_gzip_file(filename: &str) -> Result<String> {
     let mut file = File::open(filename).expect("something happened");
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer);
@@ -64,38 +62,53 @@ fn read_string_from_gzip_file(filename: String) -> Result<String> {
     Ok(s)
 }
 
-fn ins_trades(conn: &Connection, trades: Vec<Trade>){
+fn ins_trades(conn: &Connection, trades: Vec<Trade>, exchange: &str, currency: &str){
     for t in trades.iter() {
-        conn.execute("INSERT INTO trades (time, price, amount) VALUES ($1, $2, $3)", &[&t.time, &t.price, &t.amount]).unwrap();
+        conn.execute("INSERT INTO trades (exchange, currency, time, price, amount) VALUES ($1, $2, $3, $4, $5)", &[&exchange, &currency, &t.time, &t.price, &t.amount]).unwrap();
     }
+}
+
+fn extract_exchange_and_currency(filename: &str) -> (String, String) {
+    let currency: Vec<&str> = filename.matches(char::is_uppercase).collect();
+    let exchange: Vec<&str> = filename.matches(char::is_lowercase).collect();
+    (exchange.join(""),currency.join(""))
 }
 
 main!(|args: Cli| {
     let conn = Connection::connect(format!("postgres://{}@{}:{}", args.dbUser, args.dbHostname, args.dbPort), TlsMode::None).unwrap();
-    let contents = read_string_from_gzip_file(args.filename).unwrap();
+    let the_file = args.filename.to_owned();
+    let contents = read_string_from_gzip_file(&the_file).unwrap();
+    let exchange_currency_tuple = extract_exchange_and_currency(&the_file);
     let trades = deserialize_trades_from_file_contents(contents).unwrap();
-    ins_trades(&conn, trades);
+    ins_trades(&conn, trades, &exchange_currency_tuple.0, &exchange_currency_tuple.1);
 });
+
+#[test]
+fn extract_exchange_test() {
+    let tups =extract_exchange_and_currency(&"thisistheexchangeUSD");
+    assert_eq!(tups.0, "thisistheexchange");
+    assert_eq!(tups.1, "USD");
+}
 
 #[test]
 fn insert_trades_int_test() {
     let conn = Connection::connect(format!("postgres://{}@{}:{}", "postgres", "localhost", "5433"), TlsMode::None).unwrap();
-    let contents = read_string_from_gzip_file("./src/resources/test.csv.gz".to_string()).unwrap();
+    let contents = read_string_from_gzip_file(&"./src/resources/test.csv.gz").unwrap();
     assert_eq!(contents.len(), 430);
 
     let trades = deserialize_trades_from_file_contents(contents).unwrap();
     assert_ne!(trades.len(), 0);
-    ins_trades(&conn, trades);
+    ins_trades(&conn, trades, "an_exchange", "EUR");
     for c in &conn.query("SELECT count(1) FROM trades", &[]).unwrap() {
         let cnt: i64 = c.get(0);
-        assert_eq!(cnt, 10);    
+        assert_eq!(cnt, 10);
     }
     conn.execute("delete from trades", &[]).unwrap();
 }
 
 #[test]
 fn deserialize_trades_test() {
-    let contents = read_string_from_gzip_file("./src/resources/test.csv.gz".to_string()).unwrap();
+    let contents = read_string_from_gzip_file("./src/resources/test.csv.gz").unwrap();
     assert_eq!(contents.len(), 430);
 
     let trades = deserialize_trades_from_file_contents(contents).unwrap();
@@ -104,7 +117,7 @@ fn deserialize_trades_test() {
 
 #[test]
 fn read_gz_test() {
-    let decomped = read_string_from_gzip_file("./src/resources/test.csv.gz".to_owned()).unwrap();
+    let decomped = read_string_from_gzip_file(&"./src/resources/test.csv.gz").unwrap();
     println!("{:?}",decomped);
     assert_eq!(decomped.len(), 430);
 }
