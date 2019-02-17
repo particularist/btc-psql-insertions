@@ -13,6 +13,9 @@ use std::io::BufReader;
 use std::io;
 use std::process;
 use std::io::prelude::*;
+use std::thread;
+use std::time::Duration;
+
 use postgres::{Connection, TlsMode};
 use quicli::prelude::*;
 
@@ -27,7 +30,7 @@ struct Cli {
     db_name: String
 }
 
-#[derive(Debug,Deserialize)]
+#[derive(Clone,Debug,Deserialize)]
 struct Trade {
     time: i64,
     price: f32,
@@ -75,13 +78,39 @@ fn extract_exchange_and_currency(filename: &str) -> (String, String) {
 }
 
 main!(|args: Cli| {
-    let conn = Connection::connect(format!("postgres://{}@{}:{}", args.db_user, args.db_hostname, args.db_port), TlsMode::None).unwrap();
-    let the_file = args.filename.to_owned();
-    let contents = read_string_from_gzip_file(&the_file).unwrap();
-    let exchange_currency_tuple = extract_exchange_and_currency(&the_file);
-    let trades = deserialize_trades_from_file_contents(contents).unwrap();
-    ins_trades(&conn, trades, &exchange_currency_tuple.0, &exchange_currency_tuple.1);
+    let user =  args.db_user.to_owned();
+    let hostname =  args.db_hostname.to_owned();
+    let port =  args.db_port.to_owned();
+    {
+        let num_of_threads = 4;
+        let the_file = args.filename.to_owned();
+        let contents = read_string_from_gzip_file(&the_file).unwrap();
+        let ts = deserialize_trades_from_file_contents(contents);
+        let act_trade_vec:Vec<Trade> = ts.unwrap().clone();
+        {
+            let handle = thread::spawn(move || {
+                let mut trade_it = act_trade_vec.chunks(num_of_threads);
+                let exchange_currency_tuple = extract_exchange_and_currency(&the_file);
+                println!("inserting");
+                trade_it.map(|trade_slices|
+                    ins_trades(&Connection::connect(format!("postgres://{}@{}:{}", user, hostname, port), TlsMode::None).unwrap(), trade_slices.to_vec(), &exchange_currency_tuple.0, &exchange_currency_tuple.1)
+            ).collect::<Vec<_>>();
+            });
+            handle.join().unwrap();
+        }
+    }
 });
+
+#[test]
+fn closure_test() {
+
+    let dis_x = |x| format!("{}!", x);
+    let res = dis_x("sup");
+    let do_the_thing = || println!("{}", res);
+    do_the_thing();
+    do_the_thing();
+    do_the_thing();
+}
 
 #[test]
 fn extract_exchange_test() {
