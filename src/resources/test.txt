@@ -1,1 +1,4 @@
-These are test contents
+This is a test
+file containing
+several lines
+for test purposes
